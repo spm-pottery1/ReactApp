@@ -1,12 +1,11 @@
-// src/components/Chat/MessageInput.jsx
 import React, { useState } from 'react';
 
-const MessageInput = ({ onSendMessage }) => {
+function MessageInput({ onSendMessage, disabled }) {
   const [message, setMessage] = useState('');
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (message.trim()) {
+    if (message.trim() && !disabled) {
       onSendMessage(message);
       setMessage('');
     }
@@ -25,21 +24,22 @@ const MessageInput = ({ onSendMessage }) => {
         <input
           type="text"
           className="message-input"
-          placeholder="Type a message..."
+          placeholder={disabled ? "AI is typing..." : "Type a message..."}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           onKeyPress={handleKeyPress}
+          disabled={disabled}
         />
         <button 
           type="submit" 
           className="send-button"
-          disabled={!message.trim()}
+          disabled={!message.trim() || disabled}
         >
-          Send
+          {disabled ? 'Sending...' : 'Send'}
         </button>
       </form>
     </div>
   );
-};
+}
 
 export default MessageInput;

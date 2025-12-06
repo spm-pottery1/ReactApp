@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import Message from './Message';
 
-const MessageList = ({ messages, currentUserId }) => {
+const MessageList = ({ messages, currentUserId, isAIAssistant }) => { 
   const messagesEndRef = useRef(null);
 
   const scrollToBottom = () => {
@@ -19,6 +19,7 @@ const MessageList = ({ messages, currentUserId }) => {
           key={message.id}
           message={message}
           isSent={message.senderId === currentUserId}
+          isAIAssistant={isAIAssistant} // Used to decide Markdown rendering
         />
       ))}
       <div ref={messagesEndRef} />
@@ -26,4 +27,4 @@ const MessageList = ({ messages, currentUserId }) => {
   );
 };
 
-export default MessageList;  // ← Make sure this is here!
+export default MessageList;

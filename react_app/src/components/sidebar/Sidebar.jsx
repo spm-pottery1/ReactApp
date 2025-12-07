@@ -1,47 +1,79 @@
-// src/components/Sidebar.jsx (Conceptual)
-
 import React, { useState } from 'react';
-import CreateGroupModal from '../chat/CreateGroupModal'; 
-// ... (other imports)
+import ConversationItem from './ConversationItem';
+import NewConversationModal from './NewConversationModal';
 
-function Sidebar({ conversations, currentUser, onSelectConversation, onNewGroupCreated }) {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  
-  // ... (existing functions and state)
-
-  const handleGroupCreated = (newGroup) => {
-      // Logic to convert newGroup object into a conversation object 
-      // and add it to the list, then select it.
-      const newConversation = {
-          id: String(newGroup.id),
-          name: newGroup.name,
-          type: 'GROUP', // Use 'GROUP' type for easy identification
-          // ... other fields
-      };
-      
-      onNewGroupCreated(newConversation); // Function passed from App.js to update the list
-      onSelectConversation(newConversation);
-  }
+function Sidebar({ conversations, selectedConversation, onSelectConversation, currentUser, onLogout, onConversationCreated }) {
+  const [showNewConversation, setShowNewConversation] = useState(false);
 
   return (
     <div className="sidebar">
       <div className="sidebar-header">
-        <h2>Chats</h2>
-        {/* NEW BUTTON */}
-        <button className="create-group-btn" onClick={() => setIsModalOpen(true)}>
-          + Create Group
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h3>Messages</h3>
+            <p>Logged in as: {currentUser.username}</p>
+          </div>
+          <button
+            onClick={onLogout}
+            style={{
+              padding: '8px 12px',
+              background: 'rgba(255,255,255,0.2)',
+              border: 'none',
+              borderRadius: '6px',
+              color: 'white',
+              cursor: 'pointer',
+              fontSize: '12px'
+            }}
+          >
+            Logout
+          </button>
+        </div>
+        <button
+          onClick={() => setShowNewConversation(true)}
+          style={{
+            marginTop: '10px',
+            width: '100%',
+            padding: '10px',
+            background: 'rgba(255,255,255,0.2)',
+            border: 'none',
+            borderRadius: '6px',
+            color: 'white',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: '600'
+          }}
+        >
+          + New Conversation
         </button>
       </div>
       
-      {/* ... (Existing conversation list rendering) */}
+      <div className="conversations-list">
+        {conversations.length === 0 ? (
+          <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
+            No conversations yet. Start a new one!
+          </div>
+        ) : (
+          conversations.map((conversation) => (
+            <ConversationItem
+              key={conversation.id}
+              conversation={conversation}
+              isActive={selectedConversation?.id === conversation.id}
+              onSelect={() => onSelectConversation(conversation)}
+            />
+          ))
+        )}
+      </div>
 
-      {/* NEW MODAL */}
-      <CreateGroupModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        currentUser={currentUser}
-        onGroupCreated={handleGroupCreated}
-      />
+      {showNewConversation && (
+        <NewConversationModal
+          currentUser={currentUser}
+          onClose={() => setShowNewConversation(false)}
+          onConversationCreated={() => {
+            setShowNewConversation(false);
+            onConversationCreated();
+          }}
+        />
+      )}
     </div>
   );
 }

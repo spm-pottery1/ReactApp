@@ -1,111 +1,124 @@
-// src/App.js
-
 import React, { useState, useEffect } from 'react';
-
-// CORRECTED IMPORTS: Use the relative paths to your components
+import './App.css';
 import Sidebar from './components/sidebar/Sidebar';
 import ChatWindow from './components/chat/ChatWindow';
-
-// You must have a 'services/api.js' file exporting these fetch functions
-import { fetchUsers, fetchGroups } from './services/api'; 
-
+import Login from './components/Auth/Login';
+import { getConversations, logout, getAuthToken } from './services/api';
+import { connectSocket, disconnectSocket, joinConversations } from './services/socket';
 
 function App() {
-  // CRITICAL: This ID must match 'user_1' from the index.js test data
-  const currentUser = { id: 'user_1', name: 'You (Simon)' }; 
-
-  const [conversations, setConversations] = useState([]);
+  const [currentUser, setCurrentUser] = useState(null);
   const [selectedConversation, setSelectedConversation] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [conversations, setConversations] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // --- useEffect: Fetch Data from Backend ---
   useEffect(() => {
-    async function loadConversations() {
-      setIsLoading(true);
-      try {
-        // 1. Define the AI Assistant conversation manually
-        const aiConversation = { 
-          id: 'AI-Tutor-ID', 
-          name: 'AI Assistant', 
-          avatar: '🤖', 
-          type: 'AI' 
-        };
-
-        // 2. Fetch all individual users from the database
-        const { users } = await fetchUsers(); // Assumes fetchUsers returns { users: [...] }
-        const userConversations = users
-          // Filter out the current user (You can't chat with yourself)
-          .filter(u => u.id !== currentUser.id) 
-          .map(user => ({
-            id: user.id,
-            name: user.name,
-            avatar: '👤', // Placeholder for user
-            type: 'USER' 
-          }));
-
-        // 3. Fetch all groups from the database
-        const { groups } = await fetchGroups(); // Assumes fetchGroups returns { groups: [...] }
-        const groupConversations = groups.map(group => ({
-            id: String(group.id), 
-            name: group.name,
-            avatar: '👥', // Placeholder for group
-            type: 'GROUP'
-        }));
-
-        // 4. Combine all conversation types for the Sidebar
-        const allConversations = [
-          aiConversation,
-          ...userConversations,
-          ...groupConversations,
-        ];
-
-        setConversations(allConversations);
-
-        // 5. Select the first conversation (AI Assistant) by default
-        if (allConversations.length > 0) {
-            setSelectedConversation(allConversations[0]);
-        }
-        
-      } catch (error) {
-        console.error("Failed to load initial conversations:", error);
-      } finally {
-        setIsLoading(false);
-      }
+    const token = getAuthToken();
+    if (token) {
+      loadConversations();
+      // Connect to socket when user is logged in
+      connectSocket();
+    } else {
+      setLoading(false);
     }
-    loadConversations();
-  }, [currentUser.id]); 
-  // -----------------------------------------------------
 
-  // Function to instantly update the list when a new group is created
-  const handleNewGroupCreated = (newGroupConversation) => {
-    setConversations(prev => [...prev, newGroupConversation]);
-    setSelectedConversation(newGroupConversation); 
+    // Cleanup on unmount
+    return () => {
+      disconnectSocket();
+    };
+  }, []);
+
+  const loadConversations = async () => {
+    try {
+      const convos = await getConversations();
+      
+      const formattedConvos = convos.map(convo => {
+        const otherMembers = convo.members?.filter(m => m.id !== currentUser?.id) || [];
+        
+        return {
+          id: convo.id,
+          name: convo.is_group 
+            ? convo.name 
+            : otherMembers[0]?.username || 'Unknown',
+          lastMessage: convo.last_message?.content || 'No messages yet',
+          avatar: convo.is_group 
+            ? '👥' 
+            : otherMembers[0]?.avatar || '👤',
+          isGroup: convo.is_group,
+          members: convo.members
+        };
+      });
+
+      setConversations(formattedConvos);
+      
+      // Join all conversation rooms
+      const conversationIds = formattedConvos.map(c => c.id);
+      joinConversations(conversationIds);
+      
+      setLoading(false);
+    } catch (error) {
+      console.error('Failed to load conversations:', error);
+      if (error.message.includes('token')) {
+        handleLogout();
+      }
+      setLoading(false);
+    }
   };
 
-  // --- CONDITIONAL RENDERING ---
+  const handleLogin = (user) => {
+    setCurrentUser(user);
+    connectSocket();
+    loadConversations();
+  };
 
-  // Display a loading state while fetching data
-  if (isLoading) {
+  const handleLogout = () => {
+    logout();
+    disconnectSocket();
+    setCurrentUser(null);
+    setConversations([]);
+    setSelectedConversation(null);
+  };
+
+  const handleSelectConversation = (conversation) => {
+    setSelectedConversation(conversation);
+  };
+
+  const handleConversationCreated = () => {
+    loadConversations();
+  };
+
+  if (loading) {
     return (
-      <div className="app-container" style={{ textAlign: 'center', paddingTop: '100px', fontSize: '1.2em' }}>
-        <p>Loading Section Connection chats... ⏳</p>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        fontSize: '18px',
+        color: '#666'
+      }}>
+        Loading...
       </div>
     );
   }
 
-  // Main application render
+  if (!currentUser) {
+    return <Login onLogin={handleLogin} />;
+  }
+
   return (
-    <div className="app-container">
+    <div className="app">
       <Sidebar 
-        conversations={conversations} 
+        conversations={conversations}
+        selectedConversation={selectedConversation}
+        onSelectConversation={handleSelectConversation}
         currentUser={currentUser}
-        onSelectConversation={setSelectedConversation}
-        onNewGroupCreated={handleNewGroupCreated} 
-        selectedConversationId={selectedConversation?.id}
+        onLogout={handleLogout}
+        onConversationCreated={handleConversationCreated}
       />
       <ChatWindow 
-        conversation={selectedConversation} 
-        currentUser={currentUser} 
+        conversation={selectedConversation}
+        currentUser={currentUser}
       />
     </div>
   );

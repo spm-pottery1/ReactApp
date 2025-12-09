@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import ConversationItem from './ConversationItem';
-import NewConversationModal from './NewConversationModal';
+import NewConversationModal from './NewConversationModal.jsx';
 
 function Sidebar({ conversations, selectedConversation, onSelectConversation, currentUser, onLogout, onConversationCreated }) {
   const [showNewConversation, setShowNewConversation] = useState(false);
